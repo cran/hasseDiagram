@@ -22,7 +22,6 @@
 #' \item \code{transitiveReduction} -- whether to perform transitive reduction
 #' (default \code{TRUE}).
 #' }
-#' @import Rgraphviz
 #' @examples
 #' randomData <- generateRandomData(15, 2, 0.5)
 #' hasse(randomData)
@@ -39,6 +38,12 @@
 #' # pdf("path-for-diagram.pdf")
 #' # hasse(randomData, NULL, list(newpage = FALSE))
 #' # dev.off()
+#' @importFrom Rgraphviz agopen
+#' @importFrom graph graphAM
+#' @importFrom graph subGraph
+#' @importFrom grid grid.newpage
+#' @importFrom grid grid.draw
+#' @importFrom methods as
 #' @export
 hasse <- function(data, labels = c(), parameters = list()) {
   stopifnot(is.matrix(data))
@@ -145,21 +150,20 @@ hasse <- function(data, labels = c(), parameters = list()) {
   
   # Perform transitive reduction
   if (parameters$transitiveReduction) {
-    for (i in seq_len(nrNodes)) {
-      for (j in seq_len(nrNodes)) {
-        if (data[i, j]) {
-          queue <- which(data[i, ])
-          queue <- queue[-c(which(queue == j))]
-          while (length(queue) > 0) {
-            first <- queue[1]
-            queue <- queue[-1]
-            if (first == j) {
-              data[i, j] <- FALSE
-              break
-            }
-            else {
-              queue <- c(queue, which(data[first, ]))
-            }
+    for (source in seq_len(nrNodes)) {
+      stack <- which(data[source, ])
+      visited <- rep(F, nrNodes)
+      visited[stack] <- T
+      
+      while (length(stack) > 0) {
+        element <- stack[1]
+        stack <- stack[-1]
+        
+        children <- which(data[element, ])
+        for (child in children) {
+          data[source, child] = FALSE
+          if (!visited[child]) {
+            stack <- c(child, stack)
           }
         }
       }
@@ -176,12 +180,19 @@ hasse <- function(data, labels = c(), parameters = list()) {
     queue <- queue[-1]
     dist <- distances[1]
     distances <- distances[-1]
-    children <- which(data[element, ] == TRUE)
+    children <- which(data[element, ])
     
     for (i in seq_len(length(children))) {
-      ranks[children[i]] <- dist + 1
-      queue <- c(queue, children[i])
-      distances <- c(distances, dist + 1)
+      idx <- which(queue == children[i])
+      
+      if (length(idx) == 0) {
+        ranks[children[i]] <- dist + 1
+        queue <- c(queue, children[i])
+        distances <- c(distances, dist + 1)
+      } else {
+        distances[idx] <- max(distances[idx], dist + 1)
+        ranks[children[i]] <- max(ranks[children[i]], dist + 1)
+      }
     }
   }
   
@@ -199,7 +210,6 @@ hasse <- function(data, labels = c(), parameters = list()) {
   for (i in seq_len(max(ranks))) {
     subGList[[length(subGList) + 1]] <- list(graph = subGraph(rownames(data)[which(ranks == i)], graph),
                                              cluster = FALSE)
-    #print (which(ranks == i))
   }
   
   ragraph <- agopen(graph,
@@ -274,6 +284,8 @@ extractGroups <- function(data) {
 }
 
 # Node height by labels (in inches)
+#' @importFrom grid convertY
+#' @importFrom grid unit
 nHi <- function(labels, margin) {
   result <- unit(1, "lines") + unit(margin$tb * 2, "inch")
   if (length(labels) > 1)
@@ -283,6 +295,9 @@ nHi <- function(labels, margin) {
 }
 
 # Node width by labels (in inches)
+#' @importFrom grid convertX
+#' @importFrom grid unit
+#' @importFrom grid stringWidth
 nWi <- function(labels, margin) {
   result <- unit(0, "inch")
   for (label in labels)
@@ -293,6 +308,18 @@ nWi <- function(labels, margin) {
   return (convertX(result, "inches", TRUE))
 }
 
+#' @importFrom grid viewport
+#' @importFrom grid pushViewport
+#' @importFrom grid grid.rect
+#' @importFrom grid grid.roundrect
+#' @importFrom grid grid.clip
+#' @importFrom grid convertWidth
+#' @importFrom grid stringWidth
+#' @importFrom grid unit
+#' @importFrom grid convertHeight
+#' @importFrom grid grid.text
+#' @importFrom grid gpar
+#' @importFrom grid popViewport
 drawNode <- function(x, y, width, height, labels, shape, margin) {
   vp <- viewport(x,
                  y,
@@ -336,11 +363,30 @@ drawNode <- function(x, y, width, height, labels, shape, margin) {
   popViewport()
 }
 
+
+#' @importFrom grid grob
 hasseGrob <- function(graph, labels, parameters) {
   grob(graph = graph, labels = labels, parameters = parameters, cl = "hasseGrob")
 }
 
 #' @importFrom grid drawDetails
+#' @importFrom grid viewport
+#' @importFrom grid unit
+#' @importFrom grid pushViewport
+#' @importFrom grid grid.lines
+#' @importFrom grid popViewport
+#' @importFrom Rgraphviz upRight
+#' @importFrom Rgraphviz boundBox
+#' @importFrom Rgraphviz botLeft
+#' @importFrom Rgraphviz getX
+#' @importFrom Rgraphviz getY
+#' @importFrom Rgraphviz AgNode
+#' @importFrom Rgraphviz getNodeCenter
+#' @importFrom Rgraphviz getNodeRW
+#' @importFrom Rgraphviz getNodeLW
+#' @importFrom Rgraphviz getNodeHeight
+#' @importFrom Rgraphviz AgEdge
+#' @importFrom Rgraphviz bezierPoints
 #' @export
 drawDetails.hasseGrob <- function(x, ...) {
   g <- x$graph
@@ -450,6 +496,7 @@ generateRandomData <- function(nrNodes, minGraphs = 1, density = 0.5) {
 }
 
 
+#' @importFrom stats runif
 generateRandomGraph <- function(nrNodes, density = 0.2) {
   result <- matrix(data = FALSE, nrow = nrNodes, ncol = nrNodes)
   

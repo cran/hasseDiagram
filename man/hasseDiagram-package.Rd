@@ -3,7 +3,7 @@
 \alias{hasseDiagram}
 \docType{package}
 \title{
-Drawing Hasse diagram
+Drawing Hasse Diagram
 }
 \description{
 Drawing Hasse diagram - visualization of transitive reduction of a finite partially ordered set.
@@ -12,8 +12,8 @@ Drawing Hasse diagram - visualization of transitive reduction of a finite partia
 \tabular{ll}{
 Package: \tab hasseDiagram\cr
 Type: \tab Package\cr
-Version: \tab 0.1.1\cr
-Date: \tab 2014-05-20\cr
+Version: \tab 0.1.2\cr
+Date: \tab 2017-01-15\cr
 License: \tab MIT\cr
 }
 }
